@@ -11,11 +11,19 @@ Cross-platform MCP server for managing visible terminal sessions.
 
 ## Installation
 
-```bash
-# Using uv
-uv pip install terminal-mcp
+Since this package is not published on PyPI, install it directly from the repository:
 
-# Or install from source
+### Option 1: Install from GitHub (recommended)
+
+```bash
+uv pip install "git+https://github.com/Hor1zonZzz/terminal-mcp.git"
+```
+
+### Option 2: Install from a local clone
+
+```bash
+git clone https://github.com/Hor1zonZzz/terminal-mcp.git
+cd terminal-mcp
 uv pip install -e .
 ```
 
