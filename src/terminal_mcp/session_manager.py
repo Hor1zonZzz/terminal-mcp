@@ -2,6 +2,7 @@
 
 import asyncio
 import atexit
+import queue
 import signal
 import sys
 from typing import Optional
@@ -209,3 +210,27 @@ class SessionManager:
             await self._terminal.close_terminal(session)
             del self._sessions[session_id]
             return True
+
+    def get_terminal(self) -> "BaseTerminal":
+        """Get the underlying terminal implementation."""
+        return self._terminal
+
+    async def write_raw(self, session_id: str, data: str) -> bool:
+        """Write raw data to a terminal without appending newline."""
+        session = await self.get_session(session_id)
+        if not session:
+            return False
+        return await self._terminal.write_raw(session, data)
+
+    async def subscribe_output(self, session_id: str) -> "queue.Queue[str] | None":
+        """Subscribe to raw PTY output for a session."""
+        session = await self.get_session(session_id)
+        if not session:
+            return None
+        return await self._terminal.subscribe_output(session)
+
+    async def unsubscribe_output(self, session_id: str, queue: "queue.Queue[str]") -> None:
+        """Unsubscribe from raw PTY output."""
+        session = self._sessions.get(session_id)
+        if session:
+            await self._terminal.unsubscribe_output(session, queue)

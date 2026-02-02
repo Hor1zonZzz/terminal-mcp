@@ -18,7 +18,8 @@ classifiers = [
 ]
 dependencies = [
     "mcp>=1.0.0",
-    "pywinpty>=2.0.0; sys_platform == 'win32'",
+    "uvicorn>=0.30.0",
+    "pywinpty>=3.0.0; sys_platform == 'win32'",
 ]
 
 [project.scripts]

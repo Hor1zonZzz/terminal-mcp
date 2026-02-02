@@ -1,5 +1,7 @@
 """Base classes for terminal implementations."""
 
+import asyncio
+import queue as thread_queue
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
@@ -19,6 +21,7 @@ class TerminalSession:
     output_file: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     is_alive: bool = True
+    web_url: Optional[str] = None
 
 
 class BaseTerminal(ABC):
@@ -53,6 +56,19 @@ class BaseTerminal(ABC):
         pass
 
     @abstractmethod
+    async def write_raw(self, session: TerminalSession, data: str) -> bool:
+        """Write raw data to the terminal without appending newline.
+
+        Args:
+            session: The terminal session to write to.
+            data: Raw data to send to the PTY.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        pass
+
+    @abstractmethod
     async def get_output(self, session: TerminalSession, lines: int = 100) -> str:
         """Get output from the terminal.
 
@@ -62,6 +78,29 @@ class BaseTerminal(ABC):
 
         Returns:
             The terminal output as a string.
+        """
+        pass
+
+    @abstractmethod
+    async def subscribe_output(
+        self, session: TerminalSession
+    ) -> thread_queue.Queue[str]:
+        """Subscribe to raw PTY output for a session.
+
+        Returns:
+            A thread-safe Queue that receives raw output strings.
+        """
+        pass
+
+    @abstractmethod
+    async def unsubscribe_output(
+        self, session: TerminalSession, queue: thread_queue.Queue[str]
+    ) -> None:
+        """Unsubscribe from raw PTY output.
+
+        Args:
+            session: The terminal session.
+            queue: The queue previously returned by subscribe_output.
         """
         pass
 

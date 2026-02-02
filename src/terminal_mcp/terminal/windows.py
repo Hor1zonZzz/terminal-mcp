@@ -2,6 +2,7 @@
 
 import asyncio
 import collections
+import queue as thread_queue
 import uuid
 from typing import Optional
 
@@ -18,6 +19,7 @@ class WindowsTerminal(BaseTerminal):
         self._ptys: dict[str, PTY] = {}
         self._buffers: dict[str, collections.deque] = {}
         self._reader_tasks: dict[str, asyncio.Task] = {}
+        self._subscribers: dict[str, list[thread_queue.Queue[str]]] = {}
 
     async def _read_pty_output(self, session_id: str) -> None:
         """Background task that continuously reads PTY output into a deque buffer."""
@@ -35,6 +37,14 @@ class WindowsTerminal(BaseTerminal):
             except Exception:
                 break
             if data:
+                # Send raw data to all subscribers (thread-safe)
+                for q in self._subscribers.get(session_id, []):
+                    try:
+                        q.put_nowait(data)
+                    except thread_queue.Full:
+                        pass
+
+                # Line-buffered storage for MCP get_output
                 text = data.replace("\r\n", "\n").replace("\r", "")
                 for line in text.split("\n"):
                     buf.append(line)
@@ -56,6 +66,7 @@ class WindowsTerminal(BaseTerminal):
 
         self._ptys[session_id] = pty
         self._buffers[session_id] = buf
+        self._subscribers[session_id] = []
 
         task = asyncio.create_task(self._read_pty_output(session_id))
         self._reader_tasks[session_id] = task
@@ -79,6 +90,33 @@ class WindowsTerminal(BaseTerminal):
             return True
         except Exception:
             return False
+
+    async def write_raw(self, session: TerminalSession, data: str) -> bool:
+        """Write raw data to the PTY without appending newline."""
+        pty = self._ptys.get(session.id)
+        if not pty:
+            return False
+        try:
+            pty.write(data)
+            return True
+        except Exception:
+            return False
+
+    async def subscribe_output(
+        self, session: TerminalSession
+    ) -> thread_queue.Queue[str]:
+        """Subscribe to raw PTY output for a session."""
+        q: thread_queue.Queue[str] = thread_queue.Queue(maxsize=1000)
+        self._subscribers.setdefault(session.id, []).append(q)
+        return q
+
+    async def unsubscribe_output(
+        self, session: TerminalSession, queue: thread_queue.Queue[str]
+    ) -> None:
+        """Unsubscribe from raw PTY output."""
+        subs = self._subscribers.get(session.id, [])
+        if queue in subs:
+            subs.remove(queue)
 
     async def get_output(self, session: TerminalSession, lines: int = 100) -> str:
         """Read the last N lines from the output buffer."""
@@ -121,6 +159,7 @@ class WindowsTerminal(BaseTerminal):
 
         self._buffers.pop(sid, None)
         self._sessions.pop(sid, None)
+        self._subscribers.pop(sid, None)
         return True
 
     def cleanup(self):
@@ -134,3 +173,4 @@ class WindowsTerminal(BaseTerminal):
         self._buffers.clear()
         self._sessions.clear()
         self._reader_tasks.clear()
+        self._subscribers.clear()

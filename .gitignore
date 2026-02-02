@@ -11,3 +11,4 @@ wheels/
 
 # Terminal MCP temp files
 tmp/
+.claude/

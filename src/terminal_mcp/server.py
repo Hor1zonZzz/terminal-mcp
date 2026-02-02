@@ -1,10 +1,12 @@
 """Terminal MCP Server - Cross-platform terminal management."""
 
+import webbrowser
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from .session_manager import SessionManager
+from .web import get_web_url, start_web_server
 
 # Initialize the MCP server
 mcp = FastMCP("terminal_mcp")
@@ -46,10 +48,14 @@ async def terminal_create_or_get(
     """
     manager = SessionManager.get_instance()
     session = await manager.create_or_get_terminal(name, working_dir)
+    web_url = get_web_url(session.id)
+    session.web_url = web_url
+    webbrowser.open(web_url)
     return {
         "session_id": session.id,
         "name": session.name,
         "platform": session.platform,
+        "web_url": web_url,
         "message": f"Terminal '{session.name}' is ready (session: {session.id})",
     }
 
@@ -239,6 +245,7 @@ async def terminal_close(session_id: str) -> dict:
 
 def main():
     """Entry point for the MCP server."""
+    start_web_server()
     mcp.run()
 
 
